@@ -1,93 +1,90 @@
-local plr = game.Players.LocalPlayer
-local char = plr.Character or plr.CharacterAdded:Wait()
-local hrp = char:WaitForChild("HumanoidRootPart")
+--// UI Fly Script with Mobile Support, Toggle, Lock, Drag //
 
-local UIS = game:GetService("UserInputService")
-local RS = game:GetService("RunService")
+-- Services
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 
--- Fly Vars
+-- Player
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+
+-- UI Creation
+local screenGui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+screenGui.Name = "FlyUI"
+
+local mainFrame = Instance.new("Frame", screenGui)
+mainFrame.Size = UDim2.new(0, 200, 0, 150)
+mainFrame.Position = UDim2.new(0.5, -100, 0.5, -75)
+mainFrame.BackgroundColor3 = Color3.new(0.2, 0.2, 0.2)
+mainFrame.Active = true
+mainFrame.Draggable = true
+
+local toggleFly = Instance.new("TextButton", mainFrame)
+toggleFly.Size = UDim2.new(1, 0, 0, 40)
+toggleFly.Position = UDim2.new(0, 0, 0, 0)
+toggleFly.Text = "Toggle Fly"
+
+local lockDrag = Instance.new("TextButton", mainFrame)
+lockDrag.Size = UDim2.new(1, 0, 0, 40)
+lockDrag.Position = UDim2.new(0, 0, 0, 50)
+lockDrag.Text = "Lock UI"
+
+local statusLabel = Instance.new("TextLabel", mainFrame)
+statusLabel.Size = UDim2.new(1, 0, 0, 40)
+statusLabel.Position = UDim2.new(0, 0, 0, 100)
+statusLabel.Text = "Fly: OFF"
+statusLabel.TextColor3 = Color3.new(1, 1, 1)
+statusLabel.BackgroundTransparency = 1
+
+-- Variables
 local flying = false
+local lockUI = false
+local velocity = Vector3.new()
 local speed = 50
 
-local bg = Instance.new("BodyGyro")
-local bv = Instance.new("BodyVelocity")
+-- Drag Lock
+lockDrag.MouseButton1Click:Connect(function()
+	lockUI = not lockUI
+	mainFrame.Draggable = not lockUI
+	lockDrag.Text = lockUI and "Unlock UI" or "Lock UI"
+end)
 
--- Fly Funcs
-local function startFly()
-	bg.P = 9e4
-	bg.CFrame = hrp.CFrame
-	bg.Parent = hrp
+-- Fly Function
+local bodyVelocity = Instance.new("BodyVelocity")
+bodyVelocity.MaxForce = Vector3.new(1,1,1) * math.huge
+bodyVelocity.Velocity = Vector3.new(0,0,0)
+bodyVelocity.P = 10000
 
-	bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
-	bv.Velocity = hrp.CFrame.LookVector * speed
-	bv.Parent = hrp
-
-	RS:BindToRenderStep("fly", 0, function()
-		bg.CFrame = hrp.CFrame
-		bv.Velocity = hrp.CFrame.LookVector * speed
+local function flyLoop()
+	RunService:BindToRenderStep("FlyStep", Enum.RenderPriority.Input.Value, function()
+		if flying and character and humanoidRootPart then
+			local moveVector = Vector3.new()
+			if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveVector += workspace.CurrentCamera.CFrame.LookVector end
+			if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveVector -= workspace.CurrentCamera.CFrame.LookVector end
+			if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveVector -= workspace.CurrentCamera.CFrame.RightVector end
+			if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveVector += workspace.CurrentCamera.CFrame.RightVector end
+			if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveVector += Vector3.new(0,1,0) end
+			if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then moveVector -= Vector3.new(0,1,0) end
+			bodyVelocity.Velocity = moveVector.Unit * speed
+			bodyVelocity.Parent = humanoidRootPart
+		else
+			bodyVelocity.Parent = nil
+		end
 	end)
 end
 
-local function stopFly()
-	bg:Destroy()
-	bv:Destroy()
-	RS:UnbindFromRenderStep("fly")
-end
-
-local function toggleFly()
+-- Toggle Fly
+flyLoop()
+toggleFly.MouseButton1Click:Connect(function()
 	flying = not flying
-	if flying then
-		startFly()
-		toggleBtn.Text = "Fly: ON"
-	else
-		stopFly()
-		toggleBtn.Text = "Fly: OFF"
-	end
-end
-
--- UI Setup
-local gui = Instance.new("ScreenGui", plr:WaitForChild("PlayerGui"))
-gui.Name = "FlyUI"
-
-local frame = Instance.new("Frame", gui)
-frame.Size = UDim2.new(0, 120, 0, 90)
-frame.Position = UDim2.new(1, -140, 1, -150)
-frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-frame.Active = true
-frame.Draggable = true
-
-local toggleBtn = Instance.new("TextButton", frame)
-toggleBtn.Size = UDim2.new(1, 0, 0.5, -5)
-toggleBtn.Position = UDim2.new(0, 0, 0, 0)
-toggleBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-toggleBtn.TextColor3 = Color3.new(1, 1, 1)
-toggleBtn.Font = Enum.Font.SourceSansBold
-toggleBtn.TextSize = 18
-toggleBtn.Text = "Fly: OFF"
-toggleBtn.BorderSizePixel = 0
-
-local lockBtn = Instance.new("TextButton", frame)
-lockBtn.Size = UDim2.new(1, 0, 0.5, -5)
-lockBtn.Position = UDim2.new(0, 0, 0.5, 5)
-lockBtn.BackgroundColor3 = Color3.fromRGB(100, 30, 30)
-lockBtn.TextColor3 = Color3.new(1, 1, 1)
-lockBtn.Font = Enum.Font.SourceSansBold
-lockBtn.TextSize = 16
-lockBtn.Text = "Lock UI"
-lockBtn.BorderSizePixel = 0
-
-toggleBtn.MouseButton1Click:Connect(toggleFly)
-
-lockBtn.MouseButton1Click:Connect(function()
-	frame.Draggable = false
-	frame.Active = false
-	lockBtn.Text = "Locked"
+	statusLabel.Text = flying and "Fly: ON" or "Fly: OFF"
 end)
 
--- PC toggle shortcut
-UIS.InputBegan:Connect(function(input, gameProcessed)
-	if gameProcessed then return end
-	if input.KeyCode == Enum.KeyCode.F then
-		toggleFly()
-	end
+-- Cleanup on death
+player.CharacterAdded:Connect(function(char)
+	character = char
+	humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+	bodyVelocity.Parent = nil
 end)
